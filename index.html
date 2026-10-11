@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Interés Compuesto con IA</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5', // Indigo 600
+                        secondary: '#10b981', // Emerald 500
+                        dark: '#1e293b', // Slate 800
+                        ai: '#8b5cf6', // Violet 500 para la IA
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Slate 50 */
+        }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        .ai-glow {
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
+        }
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #8b5cf6;
+            width: 24px;
+            height: 24px;
+            -webkit-animation: spin 1s linear infinite; /* Safari */
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="bg-primary text-white p-2 rounded-lg">
+                    <i class="fa-solid fa-chart-line text-xl"></i>
+                </div>
+                <h1 class="text-xl font-bold text-dark tracking-tight">Interés<span class="text-primary">Compuesto</span> <span class="text-ai text-sm ml-1 px-2 py-0.5 bg-violet-100 rounded-full font-semibold">AI</span></h1>
+            </div>
+            <div>
+                <button onclick="toggleApiKeyModal()" class="text-slate-500 hover:text-primary transition-colors flex items-center gap-2 text-sm font-medium bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg">
+                    <i class="fa-solid fa-key"></i> <span class="hidden sm:inline">Configurar IA</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Modal para API Key -->
+    <div id="apiKeyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 transform scale-95 transition-transform duration-300" id="apiKeyModalContent">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-microchip text-ai mr-2"></i> Configuración de IA</h3>
+                <button onclick="toggleApiKeyModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-times text-xl"></i>
+                </button>
+            </div>
+            <p class="text-sm text-slate-600 mb-4">Para generar análisis con Inteligencia Artificial, necesitas una clave de la API de Gemini (Google). Esta clave se guarda localmente en tu navegador.</p>
+            <div class="space-y-4">
+                <div>
+                    <label for="apiKeyInput" class="block text-sm font-medium text-slate-700 mb-1">Gemini API Key</label>
+                    <input type="password" id="apiKeyInput" class="w-full rounded-lg border-slate-300 px-3 py-2 text-slate-900 focus:ring-ai focus:border-ai sm:text-sm border bg-slate-50" placeholder="AIzaSy...">
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button onclick="toggleApiKeyModal()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Cancelar</button>
+                    <button onclick="saveApiKey()" class="px-4 py-2 text-sm font-medium text-white bg-ai hover:bg-violet-700 rounded-lg transition-colors">Guardar y Cerrar</button>
+                </div>
+                <p id="apiKeyStatus" class="text-xs text-center mt-2 hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-grow py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        
+        <div class="mb-8 text-center max-w-2xl mx-auto">
+            <h2 class="text-3xl font-extrabold text-slate-900 sm:text-4xl">Proyecta tu Inversión</h2>
+            <p class="mt-4 text-lg text-slate-600">Calcula el poder del interés compuesto y obtén un análisis inteligente de tu estrategia financiera.</p>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+            
+            <!-- Panel Izquierdo: Formulario -->
+            <div class="w-full lg:w-1/3 space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-semibold text-slate-800 border-b border-slate-100 pb-3 mb-5"><i class="fa-solid fa-sliders text-primary mr-2"></i> Parámetros</h3>
+                    
+                    <form id="calculator-form" class="space-y-5">
+                        <!-- Capital Inicial -->
+                        <div>
+                            <label for="principal" class="block text-sm font-medium text-slate-700 mb-1">Capital Inicial</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <span class="text-slate-500 sm:text-sm font-medium">S/</span>
+                                </div>
+                                <input type="number" id="principal" value="5000" min="0" step="100" class="block w-full rounded-lg border-slate-300 pl-9 pr-3 py-2.5 text-slate-900 focus:ring-primary focus:border-primary sm:text-sm border bg-slate-50 hover:bg-white transition-colors">
+                            </div>
+                        </div>
+
+                        <!-- Contribución Regular -->
+                        <div>
+                            <label for="contribution" class="block text-sm font-medium text-slate-700 mb-1">Aporte Regular</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <span class="text-slate-500 sm:text-sm font-medium">S/</span>
+                                </div>
+                                <input type="number" id="contribution" value="300" min="0" step="50" class="block w-full rounded-lg border-slate-300 pl-9 pr-24 py-2.5 text-slate-900 focus:ring-primary focus:border-primary sm:text-sm border bg-slate-50 hover:bg-white transition-colors">
+                                <div class="absolute inset-y-0 right-0 flex items-center">
+                                    <select id="frequency" class="h-full rounded-r-lg border-transparent bg-transparent py-0 pl-2 pr-7 text-slate-600 focus:ring-primary focus:border-primary sm:text-sm bg-slate-100 border-l border-slate-300 font-medium">
+                                        <option value="12">Mensual</option>
+                                        <option value="1">Anual</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tasa de Interés -->
+                        <div>
+                            <label for="rate" class="block text-sm font-medium text-slate-700 mb-1">Tasa de Interés Anual (TEA)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="rate" value="8.5" min="0" max="100" step="0.1" class="block w-full rounded-lg border-slate-300 pl-3 pr-10 py-2.5 text-slate-900 focus:ring-primary focus:border-primary sm:text-sm border bg-slate-50 hover:bg-white transition-colors">
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                    <span class="text-slate-500 sm:text-sm font-medium">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Período en Años -->
+                        <div>
+                            <label for="years" class="block text-sm font-medium text-slate-700 mb-1">Plazo de Inversión</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input type="number" id="years" value="10" min="1" max="100" step="1" class="block w-full rounded-lg border-slate-300 pl-3 pr-16 py-2.5 text-slate-900 focus:ring-primary focus:border-primary sm:text-sm border bg-slate-50 hover:bg-white transition-colors">
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                    <span class="text-slate-500 sm:text-sm font-medium">Años</span>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Panel Derecho: Resultados, Gráfico e IA -->
+            <div class="w-full lg:w-2/3 space-y-6 flex flex-col">
+                
+                <!-- Tarjetas de Resultados -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center relative overflow-hidden">
+                        <div class="absolute -right-4 -bottom-4 p-4 opacity-5">
+                            <i class="fa-solid fa-wallet text-8xl text-slate-800"></i>
+                        </div>
+                        <p class="text-sm font-medium text-slate-500 mb-1 relative z-10">Total Aportado</p>
+                        <p class="text-2xl font-bold text-slate-800 relative z-10" id="result-invested">S/ 0.00</p>
+                    </div>
+                    
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center relative overflow-hidden">
+                        <div class="absolute -right-4 -bottom-4 p-4 opacity-5">
+                            <i class="fa-solid fa-arrow-trend-up text-8xl text-secondary"></i>
+                        </div>
+                        <p class="text-sm font-medium text-slate-500 mb-1 relative z-10">Interés Ganado</p>
+                        <p class="text-2xl font-bold text-secondary relative z-10" id="result-interest">S/ 0.00</p>
+                    </div>
+
+                    <div class="bg-slate-900 p-5 rounded-2xl shadow-md flex flex-col justify-center relative overflow-hidden text-white">
+                        <div class="absolute -right-4 -bottom-4 p-4 opacity-10">
+                            <i class="fa-solid fa-sack-dollar text-8xl text-white"></i>
+                        </div>
+                        <p class="text-sm font-medium text-slate-300 mb-1 relative z-10">Monto Final Proyectado</p>
+                        <p class="text-3xl font-extrabold text-white relative z-10" id="result-total">S/ 0.00</p>
+                    </div>
+                </div>
+
+                <!-- Gráfico Chart.js -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 w-full h-[350px] flex flex-col">
+                    <div class="flex-grow relative w-full h-full">
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Panel de Inteligencia Artificial -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden border-t-4 border-t-ai">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 flex items-center">
+                                <i class="fa-solid fa-sparkles text-ai mr-2"></i> Análisis con Inteligencia Artificial
+                            </h3>
+                            <p class="text-sm text-slate-500 mt-1">Obtén un resumen y consejos sobre tu proyección usando Gemini AI.</p>
+                        </div>
+                        <button id="btnAnalyze" onclick="generateAIAnalysis()" class="w-full sm:w-auto bg-ai hover:bg-violet-700 text-white font-medium py-2 px-5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md ai-glow">
+                            <i class="fa-solid fa-robot"></i> Analizar Plan
+                        </button>
+                    </div>
+
+                    <!-- Contenedor del resultado de IA -->
+                    <div id="aiResultContainer" class="hidden bg-slate-50 rounded-xl p-5 border border-slate-100">
+                        <div id="aiLoading" class="hidden flex items-center gap-3 text-ai font-medium">
+                            <div class="loader"></div> Analizando tus números...
+                        </div>
+                        <div id="aiContent" class="text-sm text-slate-700 leading-relaxed space-y-3 hidden">
+                            <!-- El contenido generado por Gemini irá aquí -->
+                        </div>
+                        <div id="aiError" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-100 flex items-start gap-2">
+                            <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                            <span id="aiErrorMessage">Error al conectar con la IA. Verifica tu API Key.</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Formateador de moneda
+        const formatMoney = new Intl.NumberFormat('es-PE', {
+            style: 'currency',
+            currency: 'PEN',
+            minimumFractionDigits: 2
+        });
+
+        // Variables de UI
+        const inputs = {
+            principal: document.getElementById('principal'),
+            contribution: document.getElementById('contribution'),
+            frequency: document.getElementById('frequency'),
+            rate: document.getElementById('rate'),
+            years: document.getElementById('years')
+        };
+        const displays = {
+            invested: document.getElementById('result-invested'),
+            interest: document.getElementById('result-interest'),
+            total: document.getElementById('result-total')
+        };
+        
+        let growthChart = null;
+        let currentCalculationData = {}; // Guarda los últimos datos calculados para pasarlos a la IA
+
+        // Modal API Key Toggle
+        const modal = document.getElementById('apiKeyModal');
+        const modalContent = document.getElementById('apiKeyModalContent');
+        
+        function toggleApiKeyModal() {
+            if (modal.classList.contains('hidden')) {
+                // Abrir
+                modal.classList.remove('hidden');
+                // Recuperar la key si existe
+                document.getElementById('apiKeyInput').value = localStorage.getItem('gemini_api_key') || '';
+                document.getElementById('apiKeyStatus').classList.add('hidden');
+                // Animación
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    modalContent.classList.remove('scale-95');
+                }, 10);
+            } else {
+                // Cerrar
+                modal.classList.add('opacity-0');
+                modalContent.classList.add('scale-95');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            const status = document.getElementById('apiKeyStatus');
+            status.classList.remove('hidden');
+            
+            if (key) {
+                localStorage.setItem('gemini_api_key', key);
+                status.textContent = "¡API Key guardada correctamente!";
+                status.className = "text-xs text-center mt-2 text-green-600 font-medium";
+                setTimeout(toggleApiKeyModal, 1000);
+            } else {
+                localStorage.removeItem('gemini_api_key');
+                status.textContent = "API Key eliminada.";
+                status.className = "text-xs text-center mt-2 text-slate-500";
+                setTimeout(toggleApiKeyModal, 1000);
+            }
+        }
+
+        function calculate() {
+            const principal = parseFloat(inputs.principal.value) || 0;
+            const contribution = parseFloat(inputs.contribution.value) || 0;
+            const frequency = parseInt(inputs.frequency.value) || 12; 
+            const annualRate = parseFloat(inputs.rate.value) || 0;
+            const years = parseInt(inputs.years.value) || 0;
+
+            const ratePerPeriod = (annualRate / 100) / frequency;
+            let currentBalance = principal;
+            let totalInvested = principal;
+            let totalInterest = 0;
+
+            const labels = ['Año 0'];
+            const principalData = [principal];
+            const contributionsData = [0];
+            const interestData = [0];
+
+            for (let y = 1; y <= years; y++) {
+                for (let p = 1; p <= frequency; p++) {
+                    const interestThisPeriod = currentBalance * ratePerPeriod;
+                    totalInterest += interestThisPeriod;
+                    currentBalance += interestThisPeriod + contribution;
+                    totalInvested += contribution;
+                }
+                labels.push(`Año ${y}`);
+                principalData.push(principal);
+                contributionsData.push(totalInvested - principal);
+                interestData.push(totalInterest);
+            }
+
+            // Actualizar Tarjetas
+            displays.invested.textContent = formatMoney.format(totalInvested);
+            displays.interest.textContent = formatMoney.format(totalInterest);
+            displays.total.textContent = formatMoney.format(currentBalance);
+
+            // Guardar datos para la IA
+            currentCalculationData = { principal, contribution, frequency, annualRate, years, totalInvested, totalInterest, finalAmount: currentBalance };
+
+            updateChart(labels, principalData, contributionsData, interestData);
+            
+            // Ocultar resultados de IA anteriores si cambian los parámetros drásticamente
+            document.getElementById('aiResultContainer').classList.add('hidden');
+        }
+
+        function updateChart(labels, principalData, contributionsData, interestData) {
+            const ctx = document.getElementById('growthChart').getContext('2d');
+            
+            if (growthChart) growthChart.destroy();
+
+            growthChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Capital Inicial', data: principalData, backgroundColor: '#cbd5e1', stack: 'Stack 0' }, // Slate 300
+                        { label: 'Aportes Adicionales', data: contributionsData, backgroundColor: '#4f46e5', stack: 'Stack 0' }, // Primary
+                        { label: 'Interés Generado', data: interestData, backgroundColor: '#10b981', stack: 'Stack 0', borderRadius: { topLeft: 4, topRight: 4 } } // Secondary
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 15, font: { family: "'Inter', sans-serif", size: 12 } } },
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            titleFont: { family: "'Inter', sans-serif" },
+                            bodyFont: { family: "'Inter', sans-serif" },
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: ${formatMoney.format(ctx.parsed.y)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { stacked: true, grid: { display: false } },
+                        y: {
+                            stacked: true,
+                            border: { display: false },
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                callback: (val) => {
+                                    if (val >= 1000000) return 'S/ ' + (val / 1000000).toFixed(1) + 'M';
+                                    if (val >= 1000) return 'S/ ' + (val / 1000).toFixed(0) + 'k';
+                                    return 'S/ ' + val;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function generateAIAnalysis() {
+            const apiKey = localStorage.getItem('gemini_api_key');
+            
+            if (!apiKey) {
+                toggleApiKeyModal();
+                return;
+            }
+
+            const container = document.getElementById('aiResultContainer');
+            const loading = document.getElementById('aiLoading');
+            const content = document.getElementById('aiContent');
+            const errorDiv = document.getElementById('aiError');
+            const btn = document.getElementById('btnAnalyze');
+
+            // Preparar UI para carga
+            container.classList.remove('hidden');
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            btn.disabled = true;
+            btn.classList.add('opacity-70');
+
+            // Construir el prompt para la IA
+            const d = currentCalculationData;
+            const freqText = d.frequency === 12 ? 'mensuales' : 'anuales';
+            const prompt = `
+            Actúa como un asesor financiero optimista y experto. 
+            Analiza el siguiente plan de inversión de un usuario en Perú (moneda: Soles S/):
+            - Capital Inicial: S/ ${d.principal.toFixed(2)}
+            - Aportes: S/ ${d.contribution.toFixed(2)} ${freqText}
+            - Tasa Anual: ${d.annualRate}%
+            - Plazo: ${d.years} años
+            
+            Resultado proyectado al final del plazo:
+            - Total aportado de su bolsillo: S/ ${d.totalInvested.toFixed(2)}
+            - Pura ganancia por interés compuesto: S/ ${d.totalInterest.toFixed(2)}
+            - Total Acumulado: S/ ${d.finalAmount.toFixed(2)}
+
+            Escribe un breve análisis (máximo 150 palabras). 
+            Destaca el porcentaje o cantidad que proviene solo de los intereses para motivarlo. 
+            Da 2 consejos breves y accionables para mejorar su estrategia.
+            
+            IMPORTANTE: Devuelve el resultado en formato HTML básico usando SOLO etiquetas <p> para párrafos, <strong> para negritas y <ul>/<li> para la lista de consejos. No uses la etiqueta de bloque de código markdown (\`\`\`html).
+            `;
+
+            try {
+                // Utilizando el modelo recomendado para textos rápidos según instrucciones de la plataforma
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error?.message || 'Error en la solicitud a Gemini');
+                }
+
+                if (data.candidates && data.candidates.length > 0) {
+                    let aiText = data.candidates[0].content.parts[0].text;
+                    // Limpiar en caso la IA devuelva markdown a pesar de la instrucción
+                    aiText = aiText.replace(/```html/g, '').replace(/```/g, '');
+                    
+                    content.innerHTML = aiText;
+                    
+                    // Mostrar contenido
+                    loading.classList.add('hidden');
+                    content.classList.remove('hidden');
+                } else {
+                    throw new Error('Respuesta inesperada de la IA');
+                }
+
+            } catch (error) {
+                console.error("AI Error:", error);
+                loading.classList.add('hidden');
+                errorDiv.classList.remove('hidden');
+                document.getElementById('aiErrorMessage').textContent = 
+                    error.message.includes('API key not valid') 
+                        ? 'La API Key ingresada no es válida. Revisa tu configuración.' 
+                        : 'Ocurrió un error al generar el análisis. Inténtalo de nuevo más tarde.';
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-70');
+            }
+        }
+
+        // Event Listeners
+        Object.values(inputs).forEach(input => {
+            input.addEventListener('input', calculate);
+            input.addEventListener('change', calculate);
+        });
+
+        document.getElementById('calculator-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            calculate();
+        });
+
+        // Inicio automático
+        window.addEventListener('DOMContentLoaded', calculate);
+        
+    </script>
+</body>
+</html>
